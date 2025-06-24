@@ -29,10 +29,9 @@ export const CONFIG = {
     },
   },
 
-  // Pinata configuration
+  // Only expose the JWT token to client (as it's prefixed with NEXT_PUBLIC_)
+  // API Key and Secret Key will be server-side only
   PINATA: {
-    apiKey: process.env.NEXT_PUBLIC_PINATA_API_KEY,
-    secretKey: process.env.NEXT_PUBLIC_PINATA_SECRET_KEY,
     jwt: process.env.NEXT_PUBLIC_PINATA_JWT,
     gateway: "https://gateway.pinata.cloud/ipfs",
   },
@@ -58,6 +57,15 @@ export const CONFIG = {
     transactionTimeout: 60000,
   },
 } as const
+
+// Server-side only configuration
+export const SERVER_CONFIG = {
+  PINATA: {
+    apiKey: process.env.PINATA_API_KEY,
+    secretKey: process.env.PINATA_SECRET_KEY,
+    jwt: process.env.PINATA_JWT,
+  },
+}
 
 export type NetworkType = keyof typeof CONFIG.NETWORKS
 

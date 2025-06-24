@@ -1,4 +1,4 @@
-import { CONFIG } from "./config"
+import { uploadImageToIPFS, uploadMetadataToIPFS } from "@/app/actions/ipfs-actions"
 import { createError, ERROR_CODES, NFTMinterError } from "./errors"
 
 export interface UploadProgress {
@@ -13,60 +13,40 @@ export interface UploadOptions {
 }
 
 class IPFSService {
-  private readonly baseUrl = "https://api.pinata.cloud"
-  private readonly gateway = CONFIG.PINATA.gateway
-
-  private getHeaders() {
-    if (!CONFIG.PINATA.jwt) {
-      throw createError(ERROR_CODES.NETWORK_ERROR, "Pinata JWT token not configured")
-    }
-
-    return {
-      Authorization: `Bearer ${CONFIG.PINATA.jwt}`,
-    }
-  }
-
-  async uploadFile(file: File | Blob, fileName?: string, options: UploadOptions = {}): Promise<string> {
+  async uploadFile(file: File, fileName?: string, options: UploadOptions = {}): Promise<string> {
     try {
       const formData = new FormData()
-      formData.append("file", file, fileName || "file")
+      formData.append("image", file)
+      formData.append("fileName", fileName || file.name)
 
-      const metadata = JSON.stringify({
-        name: fileName || "NFT Asset",
-        keyvalues: {
-          uploadedAt: new Date().toISOString(),
-          fileType: file instanceof File ? file.type : "application/json",
-        },
-      })
-      formData.append("pinataMetadata", metadata)
+      // Simulate progress for better UX
+      if (options.onProgress) {
+        options.onProgress({ loaded: 0, total: 100, percentage: 0 })
 
-      const pinataOptions = JSON.stringify({
-        cidVersion: 1,
-        wrapWithDirectory: false,
-      })
-      formData.append("pinataOptions", pinataOptions)
+        const progressInterval = setInterval(() => {
+          const progress = Math.min(90, Math.random() * 80 + 10)
+          options.onProgress!({ loaded: progress, total: 100, percentage: progress })
+        }, 200)
 
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => {
-        controller.abort()
-      }, options.timeout || 30000)
+        const result = await uploadImageToIPFS(formData)
+        clearInterval(progressInterval)
 
-      const response = await fetch(`${this.baseUrl}/pinning/pinFileToIPFS`, {
-        method: "POST",
-        headers: this.getHeaders(),
-        body: formData,
-        signal: controller.signal,
-      })
+        options.onProgress({ loaded: 100, total: 100, percentage: 100 })
 
-      clearTimeout(timeoutId)
+        if (!result.success) {
+          throw createError(ERROR_CODES.FILE_UPLOAD_FAILED, result.error || "Upload failed")
+        }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw createError(ERROR_CODES.FILE_UPLOAD_FAILED, `Upload failed: ${response.statusText}`, errorData)
+        return result.uri!
+      } else {
+        const result = await uploadImageToIPFS(formData)
+
+        if (!result.success) {
+          throw createError(ERROR_CODES.FILE_UPLOAD_FAILED, result.error || "Upload failed")
+        }
+
+        return result.uri!
       }
-
-      const result = await response.json()
-      return `${this.gateway}/${result.IpfsHash}`
     } catch (error) {
       if (error instanceof NFTMinterError) {
         throw error
@@ -77,21 +57,27 @@ class IPFSService {
   }
 
   async uploadJSON(data: any, fileName = "metadata.json"): Promise<string> {
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: "application/json",
-    })
+    try {
+      const result = await uploadMetadataToIPFS(data)
 
-    return this.uploadFile(blob, fileName)
+      if (!result.success) {
+        throw createError(ERROR_CODES.FILE_UPLOAD_FAILED, result.error || "JSON upload failed")
+      }
+
+      return result.uri!
+    } catch (error) {
+      if (error instanceof NFTMinterError) {
+        throw error
+      }
+
+      throw createError(ERROR_CODES.FILE_UPLOAD_FAILED, "Failed to upload JSON to IPFS", error)
+    }
   }
 
   async testConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/data/testAuthentication`, {
-        method: "GET",
-        headers: this.getHeaders(),
-      })
-
-      return response.ok
+      const { testIPFSConnection } = await import("@/app/actions/ipfs-actions")
+      return await testIPFSConnection()
     } catch {
       return false
     }

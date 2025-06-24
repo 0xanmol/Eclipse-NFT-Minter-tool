@@ -10,21 +10,13 @@ export function validateEnvironment(): EnvValidationResult {
   const errors: string[] = []
   const warnings: string[] = []
 
-  // Check required Pinata configuration
+  // Only check public environment variables on client
   if (!CONFIG.PINATA.jwt) {
     errors.push("NEXT_PUBLIC_PINATA_JWT environment variable is required")
   }
 
-  if (!CONFIG.PINATA.apiKey) {
-    warnings.push("NEXT_PUBLIC_PINATA_API_KEY is not set (optional)")
-  }
-
-  if (!CONFIG.PINATA.secretKey) {
-    warnings.push("NEXT_PUBLIC_PINATA_SECRET_KEY is not set (optional)")
-  }
-
   // Check Solana RPC URL
-  if (!CONFIG.NETWORKS.mainnet.url.includes("mainnet-beta")) {
+  if (!CONFIG.NETWORKS["solana-mainnet"].url.includes("mainnet-beta")) {
     warnings.push("Custom Solana RPC URL detected - ensure it's reliable for production")
   }
 

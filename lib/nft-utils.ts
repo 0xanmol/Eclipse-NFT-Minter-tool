@@ -1,48 +1,11 @@
 import { Connection, type PublicKey, Keypair } from "@solana/web3.js"
 import { Metaplex, keypairIdentity, irysStorage } from "@metaplex-foundation/js"
 
-// Pinata configuration
-const PINATA_API_KEY = process.env.NEXT_PUBLIC_PINATA_API_KEY
-const PINATA_SECRET_KEY = process.env.NEXT_PUBLIC_PINATA_SECRET_KEY
-const PINATA_JWT = process.env.NEXT_PUBLIC_PINATA_JWT
-
-// Solana configuration
+// Solana configuration - only public variables
 const SOLANA_RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com"
 
-export async function uploadToIPFS(file: File | Blob, fileName?: string): Promise<string> {
-  try {
-    const formData = new FormData()
-    formData.append("file", file, fileName || "file")
-
-    const metadata = JSON.stringify({
-      name: fileName || "NFT Asset",
-    })
-    formData.append("pinataMetadata", metadata)
-
-    const options = JSON.stringify({
-      cidVersion: 0,
-    })
-    formData.append("pinataOptions", options)
-
-    const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${PINATA_JWT}`,
-      },
-      body: formData,
-    })
-
-    if (!response.ok) {
-      throw new Error(`Pinata upload failed: ${response.statusText}`)
-    }
-
-    const result = await response.json()
-    return `https://gateway.pinata.cloud/ipfs/${result.IpfsHash}`
-  } catch (error) {
-    console.error("IPFS upload error:", error)
-    throw new Error("Failed to upload to IPFS")
-  }
-}
+// Note: IPFS upload functions moved to server actions
+// This file now only contains NFT minting logic
 
 export async function mintNFT({
   name,

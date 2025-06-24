@@ -113,16 +113,9 @@ export function sanitizeMetadata(formData: NFTFormData): NFTFormData {
 export function validateEnvironment(): ValidationResult {
   const errors: string[] = []
 
+  // Only validate client-side environment variables
   if (!CONFIG.PINATA.jwt) {
     errors.push("NEXT_PUBLIC_PINATA_JWT environment variable is required")
-  }
-
-  if (!CONFIG.PINATA.apiKey) {
-    errors.push("NEXT_PUBLIC_PINATA_API_KEY environment variable is required")
-  }
-
-  if (!CONFIG.PINATA.secretKey) {
-    errors.push("NEXT_PUBLIC_PINATA_SECRET_KEY environment variable is required")
   }
 
   return {
