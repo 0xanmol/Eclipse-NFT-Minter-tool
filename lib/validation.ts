@@ -1,3 +1,4 @@
+import { PublicKey } from "@solana/web3.js"
 import { CONFIG } from "./config"
 
 export interface ValidationResult {
@@ -9,9 +10,27 @@ export interface NFTFormData {
   name: string
   description: string
   image: File | null
+  images?: File[] // For batch/collection minting
   attributes: Array<{ trait_type: string; value: string }>
   royalty: number
   collection?: string
+  // New fields for enhanced features
+  mintType: "single" | "collection"
+  recipientAddress?: string
+  recipients?: string[] // For batch airdrops
+}
+
+export interface TraitLayer {
+  name: string
+  files: File[]
+  rarity: number[]
+}
+
+export interface CollectionConfig {
+  name: string
+  description: string
+  size: number
+  traitLayers: TraitLayer[]
 }
 
 export function validateFile(file: File): ValidationResult {
@@ -44,6 +63,33 @@ export function validateFile(file: File): ValidationResult {
   }
 }
 
+export function validateSolanaAddress(address: string): boolean {
+  if (!address || typeof address !== "string") {
+    return false
+  }
+
+  const trimmed = address.trim()
+
+  // Check length (Solana addresses are base58 encoded, typically 32-44 characters)
+  if (trimmed.length < 32 || trimmed.length > 44) {
+    return false
+  }
+
+  // Check if it's a valid base58 string (basic check)
+  const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/
+  if (!base58Regex.test(trimmed)) {
+    return false
+  }
+
+  try {
+    // Try to create a PublicKey to validate
+    new PublicKey(trimmed)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function validateNFTMetadata(formData: NFTFormData): ValidationResult {
   const errors: string[] = []
 
@@ -61,13 +107,42 @@ export function validateNFTMetadata(formData: NFTFormData): ValidationResult {
     errors.push(`Description must be less than ${CONFIG.NFT.maxDescriptionLength} characters`)
   }
 
-  // Validate image
-  if (!formData.image) {
-    errors.push("NFT image is required")
-  } else {
-    const fileValidation = validateFile(formData.image)
-    if (!fileValidation.isValid) {
-      errors.push(...fileValidation.errors)
+  // Validate images based on mint type
+  if (formData.mintType === "single") {
+    if (!formData.image) {
+      errors.push("NFT image is required")
+    } else {
+      const fileValidation = validateFile(formData.image)
+      if (!fileValidation.isValid) {
+        errors.push(...fileValidation.errors)
+      }
+    }
+  } else if (formData.mintType === "collection") {
+    if (!formData.images || formData.images.length === 0) {
+      errors.push("Collection images are required")
+    } else {
+      for (const image of formData.images) {
+        const fileValidation = validateFile(image)
+        if (!fileValidation.isValid) {
+          errors.push(`${image.name}: ${fileValidation.errors.join(", ")}`)
+        }
+      }
+    }
+  }
+
+  // Validate recipient address
+  if (formData.recipientAddress && formData.recipientAddress.trim()) {
+    if (!validateSolanaAddress(formData.recipientAddress.trim())) {
+      errors.push("Invalid recipient address format")
+    }
+  }
+
+  // Validate recipients for batch operations
+  if (formData.recipients && formData.recipients.length > 0) {
+    for (const address of formData.recipients) {
+      if (!validateSolanaAddress(address.trim())) {
+        errors.push(`Invalid recipient address: ${address}`)
+      }
     }
   }
 
@@ -101,6 +176,8 @@ export function sanitizeMetadata(formData: NFTFormData): NFTFormData {
     ...formData,
     name: formData.name.trim(),
     description: formData.description.trim(),
+    recipientAddress: formData.recipientAddress?.trim(),
+    recipients: formData.recipients?.map((addr) => addr.trim()).filter(Boolean),
     attributes: formData.attributes
       .filter((attr) => attr.trait_type.trim() && attr.value.trim())
       .map((attr) => ({
