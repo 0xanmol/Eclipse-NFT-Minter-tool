@@ -43,6 +43,7 @@ import { ipfsService } from "@/lib/ipfs-service"
 import { enhancedMetaplexService, type EnhancedMintResult, type BatchMintResult } from "@/lib/enhanced-metaplex-service"
 import { getErrorMessage } from "@/lib/errors"
 import { DragDropUpload } from "@/components/ui/drag-drop-upload"
+import { Footer } from "@/components/footer"
 
 interface MintingStep {
   id: string
@@ -459,23 +460,23 @@ function NFTMinter() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-2 sm:p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-2">
             {isEclipseNetwork(network) ? "Eclipse" : "Solana"} NFT Minter
           </h1>
-          <p className="text-gray-600">
+          <p className="text-sm sm:text-base text-gray-600 px-2">
             Mint NFTs on {getNetworkDisplayName(network)} with custom metadata and attributes
           </p>
         </div>
 
         {/* Network & Wallet Status */}
-        <div className="grid md:grid-cols-2 gap-4 mb-6">
+        <div className="grid gap-3 sm:gap-4 mb-4 sm:mb-6">
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Network className="w-5 h-5" />
                   <div>
@@ -489,7 +490,7 @@ function NFTMinter() {
                   </div>
                 </div>
                 <Select value={network} onValueChange={(value: NetworkType) => setNetwork(value)}>
-                  <SelectTrigger className="w-48">
+                  <SelectTrigger className="w-full sm:w-48">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -504,8 +505,8 @@ function NFTMinter() {
           </Card>
 
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Wallet className="w-5 h-5" />
                   <div>
@@ -515,7 +516,9 @@ function NFTMinter() {
                     )}
                   </div>
                 </div>
-                <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700" />
+                <div className="w-full sm:w-auto">
+                  <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !w-full sm:!w-auto" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -755,7 +758,7 @@ function NFTMinter() {
         )}
 
         {/* Main Form */}
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
           {/* Mint Type Selection */}
           <Card className="lg:col-span-3">
             <CardHeader>
@@ -763,7 +766,7 @@ function NFTMinter() {
               <CardDescription>Choose your minting strategy</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {["single", "collection"].map((type) => (
                   <div
                     key={type}
@@ -787,15 +790,15 @@ function NFTMinter() {
 
           {/* Image Upload */}
           <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>NFT Artwork</CardTitle>
-              <CardDescription>
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-lg sm:text-xl">NFT Artwork</CardTitle>
+              <CardDescription className="text-sm">
                 {formData.mintType === "collection"
                   ? `Upload multiple images for your collection (up to 50 files, max ${CONFIG.FILE_VALIDATION.maxSize / (1024 * 1024)}MB each)`
                   : `Upload your NFT image (max ${CONFIG.FILE_VALIDATION.maxSize / (1024 * 1024)}MB)`}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               {formData.mintType === "single" ? (
                 <div className="space-y-4">
                   <DragDropUpload
@@ -834,11 +837,11 @@ function NFTMinter() {
 
           {/* Metadata Form */}
           <Card>
-            <CardHeader>
-              <CardTitle>NFT Metadata</CardTitle>
-              <CardDescription>Define your NFT properties</CardDescription>
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-lg sm:text-xl">NFT Metadata</CardTitle>
+              <CardDescription className="text-sm">Define your NFT properties</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 sm:space-y-4 pt-0">
               <div>
                 <Label htmlFor="name">
                   Name * <span className="text-xs text-gray-500">(max {CONFIG.NFT.maxNameLength} chars)</span>
@@ -913,10 +916,16 @@ function NFTMinter() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="self" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="self">Mint to Self</TabsTrigger>
-                  <TabsTrigger value="single">Single Recipient</TabsTrigger>
-                  <TabsTrigger value="multiple">Multiple Recipients</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3 gap-1">
+                  <TabsTrigger value="self" className="text-xs sm:text-sm px-2 sm:px-3">
+                    Mint to Self
+                  </TabsTrigger>
+                  <TabsTrigger value="single" className="text-xs sm:text-sm px-2 sm:px-3">
+                    Single Recipient
+                  </TabsTrigger>
+                  <TabsTrigger value="multiple" className="text-xs sm:text-sm px-2 sm:px-3">
+                    Multiple Recipients
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="self" className="space-y-4">
@@ -975,7 +984,7 @@ function NFTMinter() {
                 (formData.mintType === "collection" && (!formData.images || formData.images.length === 0)) ||
                 !formData.name.trim()
               }
-              className={`w-full ${isEclipseNetwork(network) ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}`}
+              className={`w-full text-sm sm:text-base ${isEclipseNetwork(network) ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}`}
               size="lg"
             >
               {isLoading ? (
@@ -1006,6 +1015,9 @@ function NFTMinter() {
             )}
           </CardContent>
         </Card>
+
+        {/* Footer */}
+        <Footer />
       </div>
     </div>
   )
