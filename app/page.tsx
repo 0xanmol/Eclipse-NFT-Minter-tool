@@ -467,7 +467,7 @@ function NFTMinter() {
             {isEclipseNetwork(network) ? "Eclipse" : "Solana"} NFT Minter
           </h1>
           <p className="text-gray-600">
-            Advanced NFT minting with editions, collections, and airdrops on {getNetworkDisplayName(network)}
+            Mint NFTs on {getNetworkDisplayName(network)} with custom metadata and attributes
           </p>
         </div>
 
@@ -520,21 +520,6 @@ function NFTMinter() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Enhanced Features Info */}
-        <Card className="mb-6 border-green-200 bg-green-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <ImageIcon className="w-5 h-5 text-green-600" />
-              <div>
-                <p className="font-medium text-green-800">Enhanced NFT Minting Platform</p>
-                <p className="text-sm text-green-700">
-                  ✨ Single NFTs • 🔄 Edition Copies • 🎨 Collections • 📤 Direct Airdrops • 🖱️ Drag & Drop
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Estimated Cost */}
         {connected && estimatedCost && (
