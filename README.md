@@ -21,11 +21,11 @@
 
 Copy `.env.example` to `.env.local` and fill in your Pinata credentials:
 
-\`\`\`bash
+```bash
 PINATA_API_KEY=your_api_key_here
 PINATA_SECRET_KEY=your_secret_key_here
 PINATA_JWT=your_jwt_token_here
-\`\`\`
+```
 
 ### Installation
 
