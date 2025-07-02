@@ -25,6 +25,7 @@ import {
   ImageIcon,
   Layers,
   Zap,
+  Camera,
 } from "lucide-react"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui"
@@ -43,6 +44,7 @@ import { ipfsService } from "@/lib/ipfs-service"
 import { enhancedMetaplexService, type EnhancedMintResult, type BatchMintResult } from "@/lib/enhanced-metaplex-service"
 import { getErrorMessage } from "@/lib/errors"
 import { DragDropUpload } from "@/components/ui/drag-drop-upload"
+import { SnapshotTool } from "@/components/snapshot-tool"
 import { Footer } from "@/components/footer"
 
 interface MintingStep {
@@ -465,556 +467,574 @@ function NFTMinter() {
         {/* Header */}
         <div className="text-center mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-2">
-            {isEclipseNetwork(network) ? "Eclipse" : "Solana"} NFT Minter
+            {isEclipseNetwork(network) ? "Eclipse" : "Solana"} NFT Platform
           </h1>
           <p className="text-sm sm:text-base text-gray-600 px-2">
-            Mint NFTs on {getNetworkDisplayName(network)} with custom metadata and attributes
+            Mint NFTs and analyze holder data on {getNetworkDisplayName(network)}
           </p>
         </div>
 
-        {/* Network & Wallet Status */}
-        <div className="grid gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <Card>
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Network className="w-5 h-5" />
-                  <div>
-                    <p className="font-medium">Network</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-500">{getNetworkDisplayName(network)}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {isEclipseNetwork(network) ? "Eclipse" : "Solana"}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-                <Select value={network} onValueChange={(value: NetworkType) => setNetwork(value)}>
-                  <SelectTrigger className="w-full sm:w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="eclipse-testnet">Eclipse Testnet</SelectItem>
-                    <SelectItem value="eclipse-mainnet">Eclipse Mainnet</SelectItem>
-                    <SelectItem value="solana-devnet">Solana Devnet</SelectItem>
-                    <SelectItem value="solana-mainnet">Solana Mainnet</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Main Tabs */}
+        <Tabs defaultValue="minter" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="minter" className="flex items-center gap-2">
+              <Zap className="w-4 h-4" />
+              NFT Minter
+            </TabsTrigger>
+            <TabsTrigger value="snapshot" className="flex items-center gap-2">
+              <Camera className="w-4 h-4" />
+              Holder Snapshot
+            </TabsTrigger>
+          </TabsList>
 
-          <Card>
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Wallet className="w-5 h-5" />
-                  <div>
-                    <p className="font-medium">{connected ? "Connected" : "Connect Wallet"}</p>
-                    {connected && publicKey && (
-                      <p className="text-sm text-gray-500">{publicKey.toString().slice(0, 8)}...</p>
-                    )}
-                  </div>
-                </div>
-                <div className="w-full sm:w-auto">
-                  <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !w-full sm:!w-auto" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Estimated Cost */}
-        {connected && estimatedCost && (
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Info className="w-5 h-5 text-blue-500" />
-                <div>
-                  <p className="font-medium">Estimated Minting Cost</p>
-                  <p className="text-sm text-gray-600">
-                    ~{(estimatedCost / 1e9).toFixed(4)} {isEclipseNetwork(network) ? "ETH" : "SOL"}
-                    {formData.mintType === "collection" && (
-                      <span className="ml-2">for {formData.images?.length || 0} NFTs</span>
-                    )}
-                    {network.includes("testnet") || network.includes("devnet") ? (
-                      <Badge variant="secondary" className="ml-2">
-                        Testnet - Free
-                      </Badge>
-                    ) : (
-                      <Badge variant="default" className="ml-2">
-                        Mainnet - Real {isEclipseNetwork(network) ? "ETH" : "SOL"}
-                      </Badge>
-                    )}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Validation Errors */}
-        {validationErrors.length > 0 && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <ul className="list-disc list-inside space-y-1">
-                {validationErrors.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Minting Progress */}
-        {isLoading && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Minting {formData.mintType} on {getNetworkDisplayName(network)}
-              </CardTitle>
-              <CardDescription>{currentStep}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Progress value={mintingProgress} className="mb-4" />
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {mintingSteps.map((step) => (
-                  <div key={step.id} className="flex items-center gap-2">
-                    {step.status === "completed" && <CheckCircle className="w-4 h-4 text-green-500" />}
-                    {step.status === "active" && <Loader2 className="w-4 h-4 animate-spin text-blue-500" />}
-                    {step.status === "error" && <AlertCircle className="w-4 h-4 text-red-500" />}
-                    {step.status === "pending" && <div className="w-4 h-4 rounded-full border-2 border-gray-300" />}
-                    <span
-                      className={`text-sm ${
-                        step.status === "completed"
-                          ? "text-green-600"
-                          : step.status === "error"
-                            ? "text-red-600"
-                            : step.status === "active"
-                              ? "text-blue-600"
-                              : "text-gray-500"
-                      }`}
-                    >
-                      {step.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Success Results */}
-        {(mintResult || batchResult) && (
-          <Card className="mb-6 border-green-200 bg-green-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-800">
-                <CheckCircle className="w-5 h-5" />🎉 NFT Minting Successful!
-              </CardTitle>
-              <CardDescription className="text-green-700">
-                {mintResult && "Your NFT is now live with full Metaplex metadata!"}
-                {batchResult &&
-                  `Successfully minted ${batchResult.totalMinted} NFTs${batchResult.failed > 0 ? ` (${batchResult.failed} failed)` : ""}!`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {mintResult && (
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-green-700 font-medium">NFT Mint Address</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="text-sm bg-green-100 px-2 py-1 rounded flex-1 break-all">
-                        {mintResult.mintAddress}
-                      </code>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyToClipboard(mintResult.mintAddress, "Mint address")}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-green-700 font-medium">Token Account</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="text-sm bg-green-100 px-2 py-1 rounded flex-1 break-all">
-                        {mintResult.tokenAccount}
-                      </code>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyToClipboard(mintResult.tokenAccount, "Token account")}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-green-700 font-medium">Metadata Address</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <code className="text-sm bg-green-100 px-2 py-1 rounded flex-1 break-all">
-                        {mintResult.metadataAddress}
-                      </code>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyToClipboard(mintResult.metadataAddress, "Metadata address")}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-green-700 font-medium">Transaction</Label>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(getTransactionUrl(mintResult.signature, network), "_blank")}
-                        className="whitespace-nowrap"
-                      >
-                        <ExternalLink className="w-4 h-4 mr-1" />
-                        View on Explorer
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {batchResult && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div className="bg-green-100 p-3 rounded">
-                      <p className="text-2xl font-bold text-green-800">{batchResult.totalMinted}</p>
-                      <p className="text-sm text-green-600">Successful</p>
-                    </div>
-                    <div className="bg-red-100 p-3 rounded">
-                      <p className="text-2xl font-bold text-red-800">{batchResult.failed}</p>
-                      <p className="text-sm text-red-600">Failed</p>
-                    </div>
-                    <div className="bg-blue-100 p-3 rounded">
-                      <p className="text-2xl font-bold text-blue-800">{(batchResult.totalCost / 1e9).toFixed(4)}</p>
-                      <p className="text-sm text-blue-600">{isEclipseNetwork(network) ? "ETH" : "SOL"} Cost</p>
-                    </div>
-                  </div>
-
-                  <div className="max-h-64 overflow-y-auto">
-                    <Label className="text-green-700 font-medium">Minted NFTs</Label>
-                    <div className="space-y-2 mt-2">
-                      {batchResult.results.map((result, index) => (
-                        <div key={index} className="flex items-center justify-between bg-green-100 p-2 rounded">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">
-                              {formData.mintType === "editions"
-                                ? `Edition #${result.editionNumber}`
-                                : `NFT #${index + 1}`}
-                            </p>
-                            <p className="text-xs text-gray-600 truncate">{result.mintAddress}</p>
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => copyToClipboard(result.mintAddress, "Mint address")}
-                            >
-                              <Copy className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(getTransactionUrl(result.signature, network), "_blank")}
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                            </Button>
-                          </div>
+          <TabsContent value="minter" className="space-y-6">
+            {/* Network & Wallet Status */}
+            <div className="grid gap-3 sm:gap-4 mb-4 sm:mb-6">
+              <Card>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Network className="w-5 h-5" />
+                      <div>
+                        <p className="font-medium">Network</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-500">{getNetworkDisplayName(network)}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {isEclipseNetwork(network) ? "Eclipse" : "Solana"}
+                          </Badge>
                         </div>
-                      ))}
+                      </div>
+                    </div>
+                    <Select value={network} onValueChange={(value: NetworkType) => setNetwork(value)}>
+                      <SelectTrigger className="w-full sm:w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="eclipse-testnet">Eclipse Testnet</SelectItem>
+                        <SelectItem value="eclipse-mainnet">Eclipse Mainnet</SelectItem>
+                        <SelectItem value="solana-devnet">Solana Devnet</SelectItem>
+                        <SelectItem value="solana-mainnet">Solana Mainnet</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Wallet className="w-5 h-5" />
+                      <div>
+                        <p className="font-medium">{connected ? "Connected" : "Connect Wallet"}</p>
+                        {connected && publicKey && (
+                          <p className="text-sm text-gray-500">{publicKey.toString().slice(0, 8)}...</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="w-full sm:w-auto">
+                      <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !w-full sm:!w-auto" />
                     </div>
                   </div>
-                </div>
-              )}
+                </CardContent>
+              </Card>
+            </div>
 
-              <div className="flex gap-2 pt-2">
-                <Button onClick={resetForm} variant="outline">
-                  Mint Another NFT
-                </Button>
-                {mintResult && (
-                  <Button
-                    variant="default"
-                    onClick={() => window.open(getTokenUrl(mintResult.mintAddress, network), "_blank")}
-                  >
-                    View Token Details
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Main Form */}
-        <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
-          {/* Mint Type Selection */}
-          <Card className="lg:col-span-3">
-            <CardHeader>
-              <CardTitle>Mint Type</CardTitle>
-              <CardDescription>Choose your minting strategy</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {["single", "collection"].map((type) => (
-                  <div
-                    key={type}
-                    className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
-                      formData.mintType === type
-                        ? "border-purple-500 bg-purple-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                    onClick={() => setFormData((prev) => ({ ...prev, mintType: type as any }))}
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      {getMintTypeIcon(type)}
-                      <h3 className="font-medium capitalize">{type} NFT</h3>
+            {/* Estimated Cost */}
+            {connected && estimatedCost && (
+              <Card className="mb-6">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <Info className="w-5 h-5 text-blue-500" />
+                    <div>
+                      <p className="font-medium">Estimated Minting Cost</p>
+                      <p className="text-sm text-gray-600">
+                        ~{(estimatedCost / 1e9).toFixed(4)} {isEclipseNetwork(network) ? "ETH" : "SOL"}
+                        {formData.mintType === "collection" && (
+                          <span className="ml-2">for {formData.images?.length || 0} NFTs</span>
+                        )}
+                        {network.includes("testnet") || network.includes("devnet") ? (
+                          <Badge variant="secondary" className="ml-2">
+                            Testnet - Free
+                          </Badge>
+                        ) : (
+                          <Badge variant="default" className="ml-2">
+                            Mainnet - Real {isEclipseNetwork(network) ? "ETH" : "SOL"}
+                          </Badge>
+                        )}
+                      </p>
                     </div>
-                    <p className="text-sm text-gray-600">{getMintTypeDescription(type)}</p>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            )}
 
-          {/* Image Upload */}
-          <Card className="lg:col-span-2">
-            <CardHeader className="pb-3 sm:pb-6">
-              <CardTitle className="text-lg sm:text-xl">NFT Artwork</CardTitle>
-              <CardDescription className="text-sm">
-                {formData.mintType === "collection"
-                  ? `Upload multiple images for your collection (up to 50 files, max ${CONFIG.FILE_VALIDATION.maxSize / (1024 * 1024)}MB each)`
-                  : `Upload your NFT image (max ${CONFIG.FILE_VALIDATION.maxSize / (1024 * 1024)}MB)`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {formData.mintType === "single" ? (
-                <div className="space-y-4">
-                  <DragDropUpload
-                    onFilesSelected={(files) => {
-                      if (files.length > 0) {
-                        setFormData((prev) => ({ ...prev, image: files[0] }))
-                        const reader = new FileReader()
-                        reader.onload = (e) => setImagePreview(e.target?.result as string)
-                        reader.readAsDataURL(files[0])
-                      }
-                    }}
-                    multiple={false}
-                    maxFiles={1}
-                  />
+            {/* Validation Errors */}
+            {validationErrors.length > 0 && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <ul className="list-disc list-inside space-y-1">
+                    {validationErrors.map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
 
-                  {imagePreview && (
-                    <div className="text-center">
-                      <img
-                        src={imagePreview || "/placeholder.svg"}
-                        alt="NFT Preview"
-                        className="max-w-full h-48 object-contain mx-auto rounded-lg border"
-                      />
+            {/* Minting Progress */}
+            {isLoading && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Minting {formData.mintType} on {getNetworkDisplayName(network)}
+                  </CardTitle>
+                  <CardDescription>{currentStep}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Progress value={mintingProgress} className="mb-4" />
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {mintingSteps.map((step) => (
+                      <div key={step.id} className="flex items-center gap-2">
+                        {step.status === "completed" && <CheckCircle className="w-4 h-4 text-green-500" />}
+                        {step.status === "active" && <Loader2 className="w-4 h-4 animate-spin text-blue-500" />}
+                        {step.status === "error" && <AlertCircle className="w-4 h-4 text-red-500" />}
+                        {step.status === "pending" && <div className="w-4 h-4 rounded-full border-2 border-gray-300" />}
+                        <span
+                          className={`text-sm ${
+                            step.status === "completed"
+                              ? "text-green-600"
+                              : step.status === "error"
+                                ? "text-red-600"
+                                : step.status === "active"
+                                  ? "text-blue-600"
+                                  : "text-gray-500"
+                          }`}
+                        >
+                          {step.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Success Results */}
+            {(mintResult || batchResult) && (
+              <Card className="mb-6 border-green-200 bg-green-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-800">
+                    <CheckCircle className="w-5 h-5" />🎉 NFT Minting Successful!
+                  </CardTitle>
+                  <CardDescription className="text-green-700">
+                    {mintResult && "Your NFT is now live with full Metaplex metadata!"}
+                    {batchResult &&
+                      `Successfully minted ${batchResult.totalMinted} NFTs${batchResult.failed > 0 ? ` (${batchResult.failed} failed)` : ""}!`}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {mintResult && (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-green-700 font-medium">NFT Mint Address</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <code className="text-sm bg-green-100 px-2 py-1 rounded flex-1 break-all">
+                            {mintResult.mintAddress}
+                          </code>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(mintResult.mintAddress, "Mint address")}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-green-700 font-medium">Token Account</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <code className="text-sm bg-green-100 px-2 py-1 rounded flex-1 break-all">
+                            {mintResult.tokenAccount}
+                          </code>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(mintResult.tokenAccount, "Token account")}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-green-700 font-medium">Metadata Address</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <code className="text-sm bg-green-100 px-2 py-1 rounded flex-1 break-all">
+                            {mintResult.metadataAddress}
+                          </code>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(mintResult.metadataAddress, "Metadata address")}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-green-700 font-medium">Transaction</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(getTransactionUrl(mintResult.signature, network), "_blank")}
+                            className="whitespace-nowrap"
+                          >
+                            <ExternalLink className="w-4 h-4 mr-1" />
+                            View on Explorer
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   )}
-                </div>
-              ) : (
-                <DragDropUpload
-                  onFilesSelected={handleMultipleImagesUpload}
-                  multiple={true}
-                  maxFiles={50}
-                  accept={CONFIG.FILE_VALIDATION.allowedTypes}
-                />
-              )}
-            </CardContent>
-          </Card>
 
-          {/* Metadata Form */}
-          <Card>
-            <CardHeader className="pb-3 sm:pb-6">
-              <CardTitle className="text-lg sm:text-xl">NFT Metadata</CardTitle>
-              <CardDescription className="text-sm">Define your NFT properties</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 sm:space-y-4 pt-0">
-              <div>
-                <Label htmlFor="name">
-                  Name * <span className="text-xs text-gray-500">(max {CONFIG.NFT.maxNameLength} chars)</span>
-                </Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder={formData.mintType === "collection" ? "My Collection" : "My Awesome NFT"}
-                  maxLength={CONFIG.NFT.maxNameLength}
-                />
-                <div className="text-xs text-gray-500 mt-1">
-                  {formData.name.length}/{CONFIG.NFT.maxNameLength}
-                </div>
-              </div>
+                  {batchResult && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="bg-green-100 p-3 rounded">
+                          <p className="text-2xl font-bold text-green-800">{batchResult.totalMinted}</p>
+                          <p className="text-sm text-green-600">Successful</p>
+                        </div>
+                        <div className="bg-red-100 p-3 rounded">
+                          <p className="text-2xl font-bold text-red-800">{batchResult.failed}</p>
+                          <p className="text-sm text-red-600">Failed</p>
+                        </div>
+                        <div className="bg-blue-100 p-3 rounded">
+                          <p className="text-2xl font-bold text-blue-800">{(batchResult.totalCost / 1e9).toFixed(4)}</p>
+                          <p className="text-sm text-blue-600">{isEclipseNetwork(network) ? "ETH" : "SOL"} Cost</p>
+                        </div>
+                      </div>
 
-              <div>
-                <Label htmlFor="description">
-                  Description{" "}
-                  <span className="text-xs text-gray-500">(max {CONFIG.NFT.maxDescriptionLength} chars)</span>
-                </Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                  placeholder="Describe your NFT..."
-                  rows={3}
-                  maxLength={CONFIG.NFT.maxDescriptionLength}
-                />
-                <div className="text-xs text-gray-500 mt-1">
-                  {formData.description.length}/{CONFIG.NFT.maxDescriptionLength}
-                </div>
-              </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        <Label className="text-green-700 font-medium">Minted NFTs</Label>
+                        <div className="space-y-2 mt-2">
+                          {batchResult.results.map((result, index) => (
+                            <div key={index} className="flex items-center justify-between bg-green-100 p-2 rounded">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">NFT #{index + 1}</p>
+                                <p className="text-xs text-gray-600 truncate">{result.mintAddress}</p>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => copyToClipboard(result.mintAddress, "Mint address")}
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => window.open(getTransactionUrl(result.signature, network), "_blank")}
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-              <div>
-                <Label htmlFor="royalty">Royalty Percentage</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="royalty"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    value={formData.royalty / 100}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        royalty: Math.round(Number.parseFloat(e.target.value) * 100),
-                      }))
-                    }
-                    className="w-24"
-                  />
-                  <span className="text-sm text-gray-500">%</span>
-                </div>
-              </div>
-
-              <Separator />
-
-              <DraggableAttributes
-                attributes={formData.attributes}
-                onAttributesChange={(attributes) => setFormData((prev) => ({ ...prev, attributes }))}
-                maxAttributes={CONFIG.NFT.maxAttributes}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Recipient Configuration */}
-          <Card className="lg:col-span-3">
-            <CardHeader>
-              <CardTitle>Recipient Configuration</CardTitle>
-              <CardDescription>Configure where NFTs will be sent</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="self" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 gap-1">
-                  <TabsTrigger value="self" className="text-xs sm:text-sm px-2 sm:px-3">
-                    Mint to Self
-                  </TabsTrigger>
-                  <TabsTrigger value="single" className="text-xs sm:text-sm px-2 sm:px-3">
-                    Single Recipient
-                  </TabsTrigger>
-                  <TabsTrigger value="multiple" className="text-xs sm:text-sm px-2 sm:px-3">
-                    Multiple Recipients
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="self" className="space-y-4">
-                  <p className="text-sm text-gray-600">NFTs will be minted to your connected wallet address.</p>
-                </TabsContent>
-
-                <TabsContent value="single" className="space-y-4">
-                  <div>
-                    <Label htmlFor="recipientAddress">Recipient Wallet Address</Label>
-                    <Input
-                      id="recipientAddress"
-                      value={formData.recipientAddress}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, recipientAddress: e.target.value }))}
-                      placeholder="Enter Solana/Eclipse wallet address..."
-                    />
-                    {formData.recipientAddress && !validateSolanaAddress(formData.recipientAddress) && (
-                      <p className="text-xs text-red-500 mt-1">Invalid wallet address format</p>
+                  <div className="flex gap-2 pt-2">
+                    <Button onClick={resetForm} variant="outline">
+                      Mint Another NFT
+                    </Button>
+                    {mintResult && (
+                      <Button
+                        variant="default"
+                        onClick={() => window.open(getTokenUrl(mintResult.mintAddress, network), "_blank")}
+                      >
+                        View Token Details
+                      </Button>
                     )}
                   </div>
-                </TabsContent>
-
-                <TabsContent value="multiple" className="space-y-4">
-                  <div>
-                    <Label htmlFor="recipients">Recipient Addresses (one per line)</Label>
-                    <Textarea
-                      id="recipients"
-                      value={recipientList}
-                      onChange={(e) => handleRecipientListChange(e.target.value)}
-                      placeholder="Enter wallet addresses, one per line..."
-                      rows={6}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {formData.recipients?.length || 0} valid addresses
-                      {formData.mintType === "collection" &&
-                        formData.images &&
-                        formData.recipients &&
-                        formData.recipients.length < formData.images.length &&
-                        ` (remaining ${formData.images.length - formData.recipients.length} will go to your wallet)`}
-                    </p>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Mint Button */}
-        <Card className="mt-6">
-          <CardContent className="p-6">
-            <Button
-              onClick={handleMint}
-              disabled={
-                !connected ||
-                isLoading ||
-                (formData.mintType !== "collection" && !formData.image) ||
-                (formData.mintType === "collection" && (!formData.images || formData.images.length === 0)) ||
-                !formData.name.trim()
-              }
-              className={`w-full text-sm sm:text-base ${isEclipseNetwork(network) ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}`}
-              size="lg"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Minting {formData.mintType} on {getNetworkDisplayName(network)}...
-                </>
-              ) : (
-                <>
-                  {getMintTypeIcon(formData.mintType)}
-                  <span className="ml-2">
-                    Mint {formData.mintType === "single" ? "NFT" : `${formData.images?.length || 0} NFT Collection`} on{" "}
-                    {getNetworkDisplayName(network)}
-                  </span>
-                  {estimatedCost && (
-                    <span className="ml-2 text-sm opacity-75">
-                      (~{(estimatedCost / 1e9).toFixed(4)} {isEclipseNetwork(network) ? "ETH" : "SOL"})
-                    </span>
-                  )}
-                </>
-              )}
-            </Button>
-            {!connected && <p className="text-sm text-gray-500 text-center mt-2">Connect your wallet to mint NFTs</p>}
-            {network.includes("mainnet") && (
-              <p className="text-sm text-orange-600 text-center mt-2">
-                ⚠️ You are minting on MAINNET - this will cost real {isEclipseNetwork(network) ? "ETH" : "SOL"}
-              </p>
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
+
+            {/* Main Form */}
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+              {/* Mint Type Selection */}
+              <Card className="lg:col-span-3">
+                <CardHeader>
+                  <CardTitle>Mint Type</CardTitle>
+                  <CardDescription>Choose your minting strategy</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    {["single", "collection"].map((type) => (
+                      <div
+                        key={type}
+                        className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
+                          formData.mintType === type
+                            ? "border-purple-500 bg-purple-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                        onClick={() => setFormData((prev) => ({ ...prev, mintType: type as any }))}
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          {getMintTypeIcon(type)}
+                          <h3 className="font-medium capitalize">{type} NFT</h3>
+                        </div>
+                        <p className="text-sm text-gray-600">{getMintTypeDescription(type)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Image Upload */}
+              <Card className="lg:col-span-2">
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-lg sm:text-xl">NFT Artwork</CardTitle>
+                  <CardDescription className="text-sm">
+                    {formData.mintType === "collection"
+                      ? `Upload multiple images for your collection (up to 50 files, max ${CONFIG.FILE_VALIDATION.maxSize / (1024 * 1024)}MB each)`
+                      : `Upload your NFT image (max ${CONFIG.FILE_VALIDATION.maxSize / (1024 * 1024)}MB)`}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {formData.mintType === "single" ? (
+                    <div className="space-y-4">
+                      <DragDropUpload
+                        onFilesSelected={(files) => {
+                          if (files.length > 0) {
+                            setFormData((prev) => ({ ...prev, image: files[0] }))
+                            const reader = new FileReader()
+                            reader.onload = (e) => setImagePreview(e.target?.result as string)
+                            reader.readAsDataURL(files[0])
+                          }
+                        }}
+                        multiple={false}
+                        maxFiles={1}
+                      />
+
+                      {imagePreview && (
+                        <div className="text-center">
+                          <img
+                            src={imagePreview || "/placeholder.svg"}
+                            alt="NFT Preview"
+                            className="max-w-full h-48 object-contain mx-auto rounded-lg border"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <DragDropUpload
+                      onFilesSelected={handleMultipleImagesUpload}
+                      multiple={true}
+                      maxFiles={50}
+                      accept={CONFIG.FILE_VALIDATION.allowedTypes}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Metadata Form */}
+              <Card>
+                <CardHeader className="pb-3 sm:pb-6">
+                  <CardTitle className="text-lg sm:text-xl">NFT Metadata</CardTitle>
+                  <CardDescription className="text-sm">Define your NFT properties</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 sm:space-y-4 pt-0">
+                  <div>
+                    <Label htmlFor="name">
+                      Name * <span className="text-xs text-gray-500">(max {CONFIG.NFT.maxNameLength} chars)</span>
+                    </Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder={formData.mintType === "collection" ? "My Collection" : "My Awesome NFT"}
+                      maxLength={CONFIG.NFT.maxNameLength}
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      {formData.name.length}/{CONFIG.NFT.maxNameLength}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="description">
+                      Description{" "}
+                      <span className="text-xs text-gray-500">(max {CONFIG.NFT.maxDescriptionLength} chars)</span>
+                    </Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Describe your NFT..."
+                      rows={3}
+                      maxLength={CONFIG.NFT.maxDescriptionLength}
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      {formData.description.length}/{CONFIG.NFT.maxDescriptionLength}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="royalty">Royalty Percentage</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="royalty"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={formData.royalty / 100}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            royalty: Math.round(Number.parseFloat(e.target.value) * 100),
+                          }))
+                        }
+                        className="w-24"
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <DraggableAttributes
+                    attributes={formData.attributes}
+                    onAttributesChange={(attributes) => setFormData((prev) => ({ ...prev, attributes }))}
+                    maxAttributes={CONFIG.NFT.maxAttributes}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Recipient Configuration */}
+              <Card className="lg:col-span-3">
+                <CardHeader>
+                  <CardTitle>Recipient Configuration</CardTitle>
+                  <CardDescription>Configure where NFTs will be sent</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue="self" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3 gap-1">
+                      <TabsTrigger value="self" className="text-xs sm:text-sm px-2 sm:px-3">
+                        Mint to Self
+                      </TabsTrigger>
+                      <TabsTrigger value="single" className="text-xs sm:text-sm px-2 sm:px-3">
+                        Single Recipient
+                      </TabsTrigger>
+                      <TabsTrigger value="multiple" className="text-xs sm:text-sm px-2 sm:px-3">
+                        Multiple Recipients
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="self" className="space-y-4">
+                      <p className="text-sm text-gray-600">NFTs will be minted to your connected wallet address.</p>
+                    </TabsContent>
+
+                    <TabsContent value="single" className="space-y-4">
+                      <div>
+                        <Label htmlFor="recipientAddress">Recipient Wallet Address</Label>
+                        <Input
+                          id="recipientAddress"
+                          value={formData.recipientAddress}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, recipientAddress: e.target.value }))}
+                          placeholder="Enter Solana/Eclipse wallet address..."
+                        />
+                        {formData.recipientAddress && !validateSolanaAddress(formData.recipientAddress) && (
+                          <p className="text-xs text-red-500 mt-1">Invalid wallet address format</p>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="multiple" className="space-y-4">
+                      <div>
+                        <Label htmlFor="recipients">Recipient Addresses (one per line)</Label>
+                        <Textarea
+                          id="recipients"
+                          value={recipientList}
+                          onChange={(e) => handleRecipientListChange(e.target.value)}
+                          placeholder="Enter wallet addresses, one per line..."
+                          rows={6}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formData.recipients?.length || 0} valid addresses
+                          {formData.mintType === "collection" &&
+                            formData.images &&
+                            formData.recipients &&
+                            formData.recipients.length < formData.images.length &&
+                            ` (remaining ${formData.images.length - formData.recipients.length} will go to your wallet)`}
+                        </p>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Mint Button */}
+            <Card className="mt-6">
+              <CardContent className="p-6">
+                <Button
+                  onClick={handleMint}
+                  disabled={
+                    !connected ||
+                    isLoading ||
+                    (formData.mintType !== "collection" && !formData.image) ||
+                    (formData.mintType === "collection" && (!formData.images || formData.images.length === 0)) ||
+                    !formData.name.trim()
+                  }
+                  className={`w-full text-sm sm:text-base ${isEclipseNetwork(network) ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}`}
+                  size="lg"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Minting {formData.mintType} on {getNetworkDisplayName(network)}...
+                    </>
+                  ) : (
+                    <>
+                      {getMintTypeIcon(formData.mintType)}
+                      <span className="ml-2">
+                        Mint {formData.mintType === "single" ? "NFT" : `${formData.images?.length || 0} NFT Collection`}{" "}
+                        on {getNetworkDisplayName(network)}
+                      </span>
+                      {estimatedCost && (
+                        <span className="ml-2 text-sm opacity-75">
+                          (~{(estimatedCost / 1e9).toFixed(4)} {isEclipseNetwork(network) ? "ETH" : "SOL"})
+                        </span>
+                      )}
+                    </>
+                  )}
+                </Button>
+                {!connected && (
+                  <p className="text-sm text-gray-500 text-center mt-2">Connect your wallet to mint NFTs</p>
+                )}
+                {network.includes("mainnet") && (
+                  <p className="text-sm text-orange-600 text-center mt-2">
+                    ⚠️ You are minting on MAINNET - this will cost real {isEclipseNetwork(network) ? "ETH" : "SOL"}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="snapshot" className="space-y-6">
+            <SnapshotTool />
+          </TabsContent>
+        </Tabs>
 
         {/* Footer */}
         <Footer />

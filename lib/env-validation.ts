@@ -1,44 +1,53 @@
-import { CONFIG } from "./config"
-
-export interface EnvValidationResult {
-  isValid: boolean
-  errors: string[]
-  warnings: string[]
-}
-
-export function validateEnvironment(): EnvValidationResult {
-  const errors: string[] = []
-  const warnings: string[] = []
-
-  // Only check public environment variables on client
-  if (!CONFIG.PINATA.jwt) {
-    errors.push("NEXT_PUBLIC_PINATA_JWT environment variable is required")
-  }
-
-  // Check Solana RPC URL
-  if (!CONFIG.NETWORKS["solana-mainnet"].url.includes("mainnet-beta")) {
-    warnings.push("Custom Solana RPC URL detected - ensure it's reliable for production")
+// Environment variable validation for server-side usage
+export function getServerEnv() {
+  // This function should only be called on the server
+  if (typeof window !== "undefined") {
+    throw new Error("getServerEnv() can only be called on the server side")
   }
 
   return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
+    RARIBLE_API_KEY: process.env.RARIBLE_API_KEY,
+    PINATA_API_KEY: process.env.PINATA_API_KEY,
+    PINATA_SECRET_KEY: process.env.PINATA_SECRET_KEY,
+    PINATA_JWT: process.env.PINATA_JWT,
+    NEXT_PUBLIC_SOLANA_RPC_URL: process.env.NEXT_PUBLIC_SOLANA_RPC_URL,
+    NEXT_PUBLIC_NETWORK: process.env.NEXT_PUBLIC_NETWORK,
   }
 }
 
-export function logEnvironmentStatus(): void {
-  const validation = validateEnvironment()
+// Client-side environment variables (prefixed with NEXT_PUBLIC_)
+export function getClientEnv() {
+  return {
+    NEXT_PUBLIC_SOLANA_RPC_URL: process.env.NEXT_PUBLIC_SOLANA_RPC_URL,
+    NEXT_PUBLIC_NETWORK: process.env.NEXT_PUBLIC_NETWORK,
+    NEXT_PUBLIC_PINATA_JWT: process.env.NEXT_PUBLIC_PINATA_JWT,
+  }
+}
 
-  if (!validation.isValid) {
-    console.error("❌ Environment validation failed:")
-    validation.errors.forEach((error) => console.error(`  - ${error}`))
-  } else {
-    console.log("✅ Environment validation passed")
+// Validate required environment variables
+export function validateEnv() {
+  const requiredServerVars = ["RARIBLE_API_KEY", "PINATA_API_KEY", "PINATA_SECRET_KEY", "PINATA_JWT"]
+  const requiredClientVars = ["NEXT_PUBLIC_SOLANA_RPC_URL", "NEXT_PUBLIC_NETWORK"]
+
+  const missing: string[] = []
+
+  // Check server-side variables (only on server)
+  if (typeof window === "undefined") {
+    for (const varName of requiredServerVars) {
+      if (!process.env[varName]) {
+        missing.push(varName)
+      }
+    }
   }
 
-  if (validation.warnings.length > 0) {
-    console.warn("⚠️ Environment warnings:")
-    validation.warnings.forEach((warning) => console.warn(`  - ${warning}`))
+  // Check client-side variables
+  for (const varName of requiredClientVars) {
+    if (!process.env[varName]) {
+      missing.push(varName)
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(", ")}`)
   }
 }
